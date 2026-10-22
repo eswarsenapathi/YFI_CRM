@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Django database
+db.sqlite3
+
+# Frontend dependencies and build
+node_modules/
+dist/
+
+# Local and temporary files
+desktop.ini
+*.log
+.DS_Store
+# Unnecessary local files
+yfi_backend/http127.0.0.18000ticketspriority=HI.txt
+yfi_backend/tickets/views.py backup.py

@@ -1,0 +1,5 @@
+/* Page-level utility styles for YFI CRM. Main theme tokens live in index.css. */
+.page-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+.page-heading p { margin-bottom: 0; color: var(--yfi-muted); }
+.section-title { font-size: 1rem; font-weight: 800; margin-bottom: 1rem; }
+.metric-icon { width: 42px; height: 42px; display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; background: #edf1ff; color: var(--yfi-primary); }
