@@ -24,3 +24,4 @@ desktop.ini
 # Unnecessary local files
 yfi_backend/http127.0.0.18000ticketspriority=HI.txt
 yfi_backend/tickets/views.py backup.py
+yfi_backend/YFI_CRM_backend/settings_backup.py
