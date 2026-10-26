@@ -1,4 +1,3 @@
-
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -18,6 +17,7 @@ load_dotenv(BASE_DIR / ".env")
 # --------------------------------------------------
 # SECURITY SETTINGS
 # --------------------------------------------------
+
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
 
 if not SECRET_KEY:
@@ -67,8 +67,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -159,6 +159,9 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
+    "DEFAULT_RENDERER_CLASSES": (
+        "rest_framework.renderers.JSONRenderer",
+    ),
 }
 
 
@@ -188,9 +191,7 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": (
-            "whitenoise.storage.CompressedManifestStaticFilesStorage"
-        ),
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
 }
 
@@ -199,11 +200,16 @@ STORAGES = {
 # CORS SETTINGS
 # --------------------------------------------------
 
+DEFAULT_CORS_ORIGINS = [
+    "http://localhost:5173",
+    "https://yfi-crm-frontend.vercel.app",
+]
+
 CORS_ALLOWED_ORIGINS = [
     origin.strip().rstrip("/")
     for origin in os.environ.get(
         "CORS_ALLOWED_ORIGINS",
-        "http://localhost:5173"
+        ",".join(DEFAULT_CORS_ORIGINS),
     ).split(",")
     if origin.strip()
 ]
@@ -214,6 +220,8 @@ CORS_ALLOWED_ORIGINS = [
 # --------------------------------------------------
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+
 # --------------------------------------------------
 # PRODUCTION LOGGING
 # --------------------------------------------------
