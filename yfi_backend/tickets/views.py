@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib.auth.models import User, Group
 from django.db import transaction
 from django.db.models import Q, Case, When, Value, IntegerField
@@ -14,6 +16,8 @@ from .models import (
     GlobalAssignmentRoutingState,
 )
 from .serializers import TicketsSerializers, RegisterUserSerializer
+
+logger = logging.getLogger(__name__)
 
 
 class TicketPagination(PageNumberPagination):
@@ -79,84 +83,89 @@ def get_next_manager():
 
     return manager
 
-
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def home(request):
-    if request.method == "GET":
-        tickets = get_role_based_tickets(request.user)
+    try:
+        if request.method == "GET":
+            tickets = get_role_based_tickets(request.user)
 
-        search = request.GET.get("search")
-        if search:
-            tickets = tickets.filter(
-                Q(customer_name__icontains=search)
-                | Q(issue_description__icontains=search)
+            search = request.GET.get("search")
+            if search:
+                tickets = tickets.filter(
+                    Q(customer_name__icontains=search)
+                    | Q(issue_description__icontains=search)
+                )
+
+            customer_name = request.GET.get("customer_name")
+            if customer_name:
+                tickets = tickets.filter(customer_name__icontains=customer_name)
+
+            priority = request.GET.get("priority")
+            if priority:
+                tickets = tickets.filter(priority=priority)
+
+            ticket_status = request.GET.get("status")
+            if ticket_status:
+                tickets = tickets.filter(status=ticket_status)
+
+            sort = request.GET.get("sort")
+            if sort == "oldest":
+                tickets = tickets.order_by("created_at")
+            elif sort == "priority":
+                tickets = tickets.annotate(
+                    priority_order=Case(
+                        When(priority="HIGH", then=Value(1)),
+                        When(priority="MEDIUM", then=Value(2)),
+                        When(priority="LOW", then=Value(3)),
+                        When(priority="UNASSIGNED", then=Value(4)),
+                        default=Value(5),
+                        output_field=IntegerField(),
+                    )
+                ).order_by("priority_order", "-created_at")
+            else:
+                tickets = tickets.order_by("-created_at")
+
+            paginator = TicketPagination()
+            page = paginator.paginate_queryset(tickets, request)
+            serializer = TicketsSerializers(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
+        # POST: customers create tickets. The Manager is assigned automatically.
+        if get_user_role(request.user) != "Customer":
+            return Response(
+                {"detail": "Only customers can create support tickets."},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
-        customer_name = request.GET.get("customer_name")
-        if customer_name:
-            tickets = tickets.filter(customer_name__icontains=customer_name)
+        serializer = TicketsSerializers(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        priority = request.GET.get("priority")
-        if priority:
-            tickets = tickets.filter(priority=priority)
+        with transaction.atomic():
+            manager = get_next_manager()
+            ticket = serializer.save(
+                user=request.user,
+                status="OPEN",
+                assigned_to=None,
+                assigned_manager=manager,
+            )
 
-        ticket_status = request.GET.get("status")
-        if ticket_status:
-            tickets = tickets.filter(status=ticket_status)
-
-        sort = request.GET.get("sort")
-        if sort == "oldest":
-            tickets = tickets.order_by("created_at")
-        elif sort == "priority":
-            tickets = tickets.annotate(
-                priority_order=Case(
-                    When(priority="HIGH", then=Value(1)),
-                    When(priority="MEDIUM", then=Value(2)),
-                    When(priority="LOW", then=Value(3)),
-                    When(priority="UNASSIGNED", then=Value(4)),
-                    default=Value(5),
-                    output_field=IntegerField(),
-                )
-            ).order_by("priority_order", "-created_at")
-        else:
-            tickets = tickets.order_by("-created_at")
-
-        paginator = TicketPagination()
-        page = paginator.paginate_queryset(tickets, request)
-        serializer = TicketsSerializers(page, many=True)
-        return paginator.get_paginated_response(serializer.data)
-
-    # POST: customers create tickets. The Manager is assigned automatically.
-    if get_user_role(request.user) != "Customer":
+        message = (
+            "Ticket created successfully and assigned to a Manager."
+            if manager
+            else "Ticket created successfully. No active Manager is available, so this ticket is unassigned."
+        )
         return Response(
-            {"detail": "Only customers can create support tickets."},
-            status=status.HTTP_403_FORBIDDEN,
+            {"message": message, "ticket": TicketsSerializers(ticket).data},
+            status=status.HTTP_201_CREATED,
         )
-
-    serializer = TicketsSerializers(data=request.data)
-    if not serializer.is_valid():
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    with transaction.atomic():
-        manager = get_next_manager()
-        ticket = serializer.save(
-            user=request.user,
-            status="OPEN",
-            assigned_to=None,
-            assigned_manager=manager,
+    except Exception:
+        logger.exception("Unhandled error in tickets.home for user_id=%s method=%s", getattr(request.user, "id", None), request.method)
+        return Response(
+            {"detail": "An internal server error occurred while processing tickets."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
-
-    message = (
-        "Ticket created successfully and assigned to a Manager."
-        if manager
-        else "Ticket created successfully. No active Manager is available, so this ticket is unassigned."
-    )
-    return Response(
-        {"message": message, "ticket": TicketsSerializers(ticket).data},
-        status=status.HTTP_201_CREATED,
-    )
-
 
 @api_view(["GET", "PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
