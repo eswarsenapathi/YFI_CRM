@@ -28,14 +28,14 @@ function Login() {
             localStorage.setItem("access", accessToken);
             localStorage.setItem("refresh", refreshToken);
 
-            const userResponse = await axios.get(
-                "http://127.0.0.1:8000/api/tickets/me/",
-                {
-                    headers: {
-                        Authorization: `Bearer ${accessToken}`,
-                    },
-                }
-            );
+           const userResponse = await axios.get(
+            "https://yfi-crm.onrender.com/api/tickets/me/",
+        {
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+        },
+    }
+        );
 
             const role = userResponse.data.role;
 
