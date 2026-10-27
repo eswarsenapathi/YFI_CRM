@@ -5,3 +5,5 @@ django-cors-headers==4.9.0
 python-dotenv==1.2.4
 gunicorn
 whitenoise
+dj-database-url
+psycopg[binary]
